@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
+import sys
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
@@ -105,6 +106,9 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT'),
     }
 }
+
+if 'test' in sys.argv:
+    DATABASES['default']['NAME'] = os.getenv('DB_TEST_NAME', 'project_test') 
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
