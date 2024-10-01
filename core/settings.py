@@ -11,12 +11,16 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from datetime import timedelta
+from dotenv import load_dotenv
 import os
+import logging
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+load_dotenv()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -132,67 +136,61 @@ SIMPLE_JWT = {
 
 AUTH_USER_MODEL = 'user.User'
 
-log_level = "info"
+log_level = "INFO"
 
-console_log_level = "info"
+console_log_level = "INFO"
 
-logging = {
-    "verion": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "default": {"format":"[%(asctime)s] %(levelname)s::%(process)d%(thread)d::%(module)s-%(message)s"},
-    },
-    "handlers": {
-        "admin_console": {
-            "level": log_level,
-            "class": "logging.StreamHandler",
-            "formater":"default",
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
         },
-        "file_handler": {
-            "level": log_level,
-            "class": "logging.handlers.TimeRotatingFileHandler",
-            "file": "/var/log/ph/api.log",
-            "when": "midnight",
-            "interval": 1,
-            "backupCount": 7,
-        },
-        "request_handler": {
-            "level": log_level,
-            "class": "logging.handlers.TimeRotatingFileHandler",
-            "filename": "/var/log/ph/django_request.log",
-            "maxBytes": 1024*1024*5,
-            "backupCount": 5,
-            "formatter": "default",
-        },
-        "console": {
-            "level": "console_log_level",
-            "class": "logging.streamHandler",
-            "formatter": "default",
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
         },
     },
-    "loggers": {
-        "" :{
-            "handlers": ["file_handler", "admin_console"],
-            "level": log_level,
-            "propagate": True,
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
         },
-        "django": {
-            "handlers": ["file_handler"],
-            "level": log_level,
-            "propagate": True,
+        'file_handler': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(LOG_DIR, 'api.log'),
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 7,
+            'formatter': 'verbose',
         },
-        "django.request": {
-            "handlers": ["request_handler"],
-            "level": log_level,
-            "propagate": False,
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file_handler'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['file_handler'],
+            'level': 'ERROR',
+            'propagate': False,
         },
     },
 }
 
 # If log directory does not exist, it is created
-log_directory = 'var/log/ph'
-if not os.path.exists(log_directory):
-    os.makedirs(log_directory)
+# log_directory = os.path.expanduser('~/logs')
+# if not os.path.exists(log_directory):
+#     os.makedirs(log_directory)
 
 
 

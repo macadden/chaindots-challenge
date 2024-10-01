@@ -23,8 +23,6 @@ class PostList(APIView):
             to_date = request.query_params.get('to_date', None)
 
             # Validate date format
-            from_date = None
-            to_date = None
             if from_date:
                 try:
                     from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
@@ -66,7 +64,7 @@ class PostList(APIView):
 
             serializer = PostSerializer(data=request.data)
             if serializer.is_valid():
-                post = serializer.save(author=request.user)  # Asigna el usuario autenticado como author
+                serializer.save(author=request.user)  # Asigna el usuario autenticado como author
                 logger.info(f"Post created successfully by user {request.user.id}")
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -114,8 +112,10 @@ class CommentList(APIView):
             return Response({'error': f'Internal server error {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def post(self, request, pk):
-        serializer = CommentSerializer(data=request.data)
+        data = request.data.copy()
+        data['post'] = pk
+        serializer = CommentSerializer(data=data)
         if serializer.is_valid():
-            serializer.save(post_id=pk, author=request.user)
+            serializer.save(author=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

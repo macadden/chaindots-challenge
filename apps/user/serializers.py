@@ -4,20 +4,23 @@ from rest_framework import serializers
 from .models import User
 from apps.post.models import Post, Comment
 
+
 class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username']
+
 
 class UserSerializer(serializers.ModelSerializer):
     total_posts = serializers.SerializerMethodField()
     total_comments = serializers.SerializerMethodField()
     followers = UserDetailSerializer(many=True, read_only=True)
     following = UserDetailSerializer(many=True, read_only=True)
+    password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'total_posts', 'total_comments', 'followers', 'following']
+        fields = ['id', 'username', 'email', 'total_posts', 'total_comments', 'followers', 'following', 'password']
 
     def get_total_posts(self, obj):
         return Post.objects.filter(author=obj).count()
@@ -41,26 +44,40 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Email already in use")
         
         return value
+    
+    def create(self, validated_data):
+        try:
+            user = User.objects.create_user(
+                username=validated_data['username'],
+                email=validated_data['email'],
+                password=validated_data['password']
+            )
+            return user
+        except Exception as e:
+            raise serializers.ValidationError({"error": str(e)})
 
   
-class FollowUserSerializer(serializers.Serializer):
-    user_id = serializers.IntegerField()
+class FollowSerializer(serializers.Serializer):
     follow_id = serializers.IntegerField()
 
-    def validate(self, data):
-        user_id = data.get('user_id')
-        follow_id = data.get('follow_id')
-
-        if user_id == follow_id:
-            raise serializers.ValidationError("User cannot follow themselves.")
+    def validate_follow_id(self, value):
+        request = self.context['request']
         
-        try:
-            user = User.objects.get(id=user_id)
-            user_to_follow = User.objects.get(id=follow_id)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("User(s) not found.")
+        if value == request.user.id:
+            raise serializers.ValidationError("Cannot follow yourself.")        
+        if value <= 0:
+            raise serializers.ValidationError("Invalid follow_id. It must be a positive integer.")        
+        if not User.objects.filter(id=value).exists():
+            raise serializers.ValidationError("User with this follow_id does not exist.")
+        
+        return value
 
-        if user_to_follow in user.following.all():
-            raise serializers.ValidationError("Already following this user.")
-
+    def validate(self, data):
+        request = self.context['request']
+        follow_id = data.get('follow_id')
+        user = request.user
+        
+        if user.following.filter(id=follow_id).exists():
+            raise serializers.ValidationError("Not Allowed.")
+        
         return data

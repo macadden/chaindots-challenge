@@ -4,12 +4,14 @@ from rest_framework import (
 )
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from utils.pagination import SmallSetPagination
 from utils.permissions import IsAuthenticated
 from .models import User
 from .serializers import (
-    FollowUserSerializer,
+    FollowSerializer,
     UserSerializer,
 )
+ 
 from apps.user import serializers
 
 logger = logging.getLogger(__name__)
@@ -17,13 +19,18 @@ logger = logging.getLogger(__name__)
 
 class UserList(APIView):
 
-
     def get(self, request):
+
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_403_FORBIDDEN)
+
         try:
+            paginator = SmallSetPagination()
             users = User.objects.all()
-            serializer = UserSerializer(users, many=True)
-            logger.info("obtencion OK de usuarios")
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            paginated_users = paginator.paginate_queryset(users, request)
+            serializer = UserSerializer(paginated_users, many=True)
+            logger.info("Obtención OK de usuarios")
+            return paginator.get_paginated_response(serializer.data)
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}")
             return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -32,7 +39,7 @@ class UserList(APIView):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            logger.info("Posteo OK")
+            logger.info("Creación de usuario OK")
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         logger.error("Error al devolver la data")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -54,29 +61,6 @@ class UserDetail(APIView):
             logger.error(f"Unexpected error: {str(e)}")
             return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def post(self, request, pk):
-        try:
-            user = User.objects.get(pk=pk)
-            follow_id = request.data.get('follow_id')
-            if not follow_id:
-                return Response({'error': 'follow_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-            to_follow = User.objects.get(pk=follow_id)
-            
-            if user == to_follow:
-                return Response({'error': 'Cannot follow yourself'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            if user.following.filter(pk=to_follow.pk).exists():
-                return Response({'status': 'Already following'}, status=status.HTTP_200_OK)
-            
-            user.following.add(to_follow)
-            logger.info(f"user {user.id} followed {to_follow.id}")
-            return Response({'status': 'User followed'}, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            logger.error(f"User {pk} or follow_id not found")
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
-            return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class FollowUser(APIView):
     permission_classes = [IsAuthenticated]
@@ -85,32 +69,26 @@ class FollowUser(APIView):
         try:
             logger.info(f"Request to follow user: {user_id} following {follow_id}")
 
-            serializer = FollowUserSerializer(data={'user_id': user_id, 'follow_id': follow_id})
+            serializer = FollowSerializer(data={'follow_id': follow_id}, context={'request': request})
             serializer.is_valid(raise_exception=True)
-            user_id = serializer.validated_data['user_id']
+            
             follow_id = serializer.validated_data['follow_id']
-
-            user = User.objects.get(id=user_id)
             user_to_follow = User.objects.get(id=follow_id)
-
-            if user_to_follow in user.following.all():
-                logger.warning(f"User {user_id} is already following user {follow_id}")
-                return Response({'error': 'Already following this user'}, status=status.HTTP_400_BAD_REQUEST)
-
-            user.following.add(user_to_follow)
-            user.save()
-
-            logger.info(f"User {user_id} successfully followed user {follow_id}")
-            return Response({'status': f'{user_id} Following user {follow_id}'}, status=status.HTTP_200_OK)
+            
+            request.user.following.add(user_to_follow)
+            request.user.save()
+            
+            logger.info(f"User {request.user.id} successfully followed user {follow_id}")
+            return Response({'success': f'Now following user {user_to_follow.username}'}, status=status.HTTP_200_OK)
         
         except serializers.ValidationError as e:
             logger.error(f"Validation error: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         except User.DoesNotExist:
-            logger.error(f"User not found: user_id={user_id} or follow_id={follow_id}")
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            logger.error(f"User not found: follow_id={follow_id}")
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
         
         except Exception as e:
             logger.error(f"Internal server error: {str(e)}")
-            return Response({'error': 'Internal server error: ' + str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': f'Internal server error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

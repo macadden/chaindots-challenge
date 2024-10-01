@@ -24,6 +24,7 @@ class PostSerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all())
+    # TODO: add something like post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.filter(is_published=True))
 
     class Meta:
         model = Comment
