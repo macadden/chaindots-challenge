@@ -188,6 +188,16 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
+        'apps.user': {
+            'handlers': ['console', 'file_handler'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'apps.post': {
+            'handlers': ['console', 'file_handler'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
 
