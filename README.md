@@ -3,7 +3,7 @@
 Este es un proyecto basado en **Python**, **Django**, **Django REST Framework** y **PostgreSQL**.
 Permite a los usuarios crear publicaciones, seguir a otros usuarios y comentar en publicaciones.
 
-- NOTA: Este proyecto también fue realizado con Docker, pero debido a inconvenientes con la base de datos, decidí subirlo sin Docker.
+- NOTA: Este proyecto también fue realizado con Docker, pero debido a inconvenientes con la base de datos, decidí subirlo sin Docker. El proyecto dockerizado se ecuentra acá: https://github.com/macadden/chaindots-dockerized-challenge
 
 ## Requisitos
 
